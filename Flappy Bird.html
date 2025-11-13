@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hinduism Flappy Bird - Energy Quiz</title>
+<style>
+  body {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(to bottom, #87CEEB, #4fc3f7);
+    font-family: 'Arial', sans-serif;
+    overflow: hidden;
+  }
+  canvas {
+    border: 3px solid #333;
+    border-radius: 10px;
+    background: linear-gradient(to top, #4fc3f7 60%, #87CEEB 100%);
+    box-shadow: 0 0 30px rgba(0,0,0,0.3);
+  }
+  #quizBox {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #fff8dc;
+    padding: 20px;
+    border: 3px solid #333;
+    border-radius: 10px;
+    display: none;
+    z-index: 10;
+  }
+  #quizBox button {
+    margin-top: 10px;
+    padding: 5px 10px;
+    cursor: pointer;
+  }
+  #homeScreen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255,255,255,0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-family: Arial, sans-serif;
+    z-index: 20;
+  }
+  #homeScreen button {
+    margin-top: 20px;
+    padding: 10px 20px;
+    font-size: 18px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<canvas id="game" width="400" height="600"></canvas>
+
+<div id="quizBox">
+  <div id="question"></div>
+  <button onclick="answerQuiz(0)" id="btn0"></button>
+  <button onclick="answerQuiz(1)" id="btn1"></button>
+  <button onclick="answerQuiz(2)" id="btn2"></button>
+  <button onclick="answerQuiz(3)" id="btn3"></button>
+</div>
+
+<div id="homeScreen">
+  <h1>🕉️ Hinduism Flappy Bird</h1>
+  <p id="highScoreDisplay">High Score: 0</p>
+  <button onclick="startGame()">Start Game</button>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const quizBox = document.getElementById("quizBox");
+const questionEl = document.getElementById("question");
+const homeScreen = document.getElementById("homeScreen");
+const highScoreDisplay = document.getElementById("highScoreDisplay");
+
+const flapSound = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
+const pointSound = new Audio("https://actions.google.com/sounds/v1/cartoon/woodpecker_pecking.ogg");
+const hitSound = new Audio("https://actions.google.com/sounds/v1/cartoon/concussive_hit_guitar_boing.ogg");
+const correctSound = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
+
+let birdY=200, birdVel=0;
+const gravity=0.35, jump=-7, birdX=80, birdSize=24;
+
+let pipes=[], frame=0, score=0, gameOver=false;
+let energy=10;
+let quizActive=false;
+let gameStarted=false;
+
+let highScore = parseInt(localStorage.getItem("flappyHighScore")) || 0;
+highScoreDisplay.innerText = `High Score: ${highScore}`;
+
+const quizQuestions=[
+  {q:"Who is the father of Ganesha", a:["Brahma","Vishnu","Shiva","Parvati"], correct:2},
+  {q:"Which festival celebrates the victory of light over darkness?", a:["Navratri","Holi","Diwali","Raksha Bandhan"], correct:2},
+  {q:"Which sacred river is considered holy in Hinduism?", a:["Yamuna","Ganga","Godavari","Krishna"], correct:1},
+  {q:"Who is the god of destruction?", a:["Shiva","Vishnu","Brahma","Indra"], correct:0},
+  {q:"Hwo many Indian are in oslo", a:["5000","10000","15000","20000"], correct:3},
+  {q:"Who created the world", a:["Brahma","Vishnu","Shiva","Parvati"], correct:1}
+
+];
+
+let currentQuiz=null;
+
+function showQuiz(){
+  quizActive=true;
+  birdVel=0;
+  quizBox.style.display="block";
+  currentQuiz=quizQuestions[Math.floor(Math.random()*quizQuestions.length)];
+  questionEl.innerText=currentQuiz.q;
+  for(let i=0;i<4;i++){
+    document.getElementById("btn"+i).innerText=currentQuiz.a[i];
+  }
+}
+
+function answerQuiz(index){
+  quizBox.style.display="none";
+  quizActive=false;
+  if(index===currentQuiz.correct){
+    energy += 5; // more energy reward
+    if(energy > 10) energy = 10;
+    correctSound.play();
+  } else {
+    gameOver=true;
+    hitSound.play();
+  }
+}
+
+function drawBackground(){
+  // moving clouds only
+  ctx.fillStyle = "rgba(255,255,255,0.8)";
+  for(let i=0;i<3;i++){
+    let cloudX=(frame*-0.3+i*250)%600-100;
+    ctx.beginPath();
+    ctx.ellipse(cloudX+50,80+i*60,40,20,0,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  // fixed ground
+  ctx.fillStyle="#3c8a2e";
+  ctx.fillRect(0,canvas.height-60,canvas.width,60);
+  ctx.fillStyle="#2e6b22";
+  for(let i=0;i<canvas.width;i+=20){
+    ctx.fillRect(i,canvas.height-60,10,10);
+  }
+}
+
+function drawBird(){
+  ctx.fillStyle="yellow";
+  ctx.beginPath();
+  ctx.arc(birdX,birdY,birdSize/2,0,Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle="black";
+  ctx.beginPath();
+  ctx.arc(birdX+6,birdY-5,3,0,Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle="orange";
+  ctx.beginPath();
+  ctx.moveTo(birdX+10,birdY);
+  ctx.lineTo(birdX+18,birdY+3);
+  ctx.lineTo(birdX+10,birdY+6);
+  ctx.fill();
+}
+
+function drawPipes(){
+  ctx.fillStyle="green";
+  pipes.forEach(pipe=>{
+    ctx.fillRect(pipe.x,0,pipe.width,pipe.top);
+    ctx.fillRect(pipe.x,canvas.height-pipe.bottom,pipe.width,pipe.bottom);
+    ctx.fillStyle="#006400";
+    ctx.fillRect(pipe.x-2,pipe.top-20,pipe.width+4,20);
+    ctx.fillRect(pipe.x-2,canvas.height-pipe.bottom,pipe.width+4,20);
+    ctx.fillStyle="green";
+  });
+}
+
+function drawEnergyBar(){
+  const barWidth = 200;
+  const barHeight = 15;
+  const x = 10;
+  const y = 50;
+
+  ctx.strokeStyle = "black";
+  ctx.strokeRect(x, y, barWidth, barHeight);
+
+  const filledWidth = (energy / 10) * barWidth;
+  ctx.fillStyle = "limegreen";
+  ctx.fillRect(x, y, filledWidth, barHeight);
+}
+
+function update(){
+  if(gameOver || quizActive || !gameStarted) return;
+
+  frame++;
+  birdVel+=gravity;
+  birdY+=birdVel;
+
+  if(frame % 100 === 0){
+    const top=Math.random()*180+40;
+    const gap=160;
+    pipes.push({x:canvas.width,width:60,top,bottom:canvas.height-(top+gap),scored:false});
+  }
+
+  pipes.forEach(pipe=>pipe.x-=2.5);
+  pipes=pipes.filter(pipe=>pipe.x+pipe.width>0);
+
+  pipes.forEach(pipe=>{
+    if(!pipe.scored && pipe.x+pipe.width<birdX){
+      score++;
+      pipe.scored=true;
+      pointSound.play();
+    }
+    if(birdX+birdSize/2>pipe.x && birdX-birdSize/2<pipe.x+pipe.width &&
+       (birdY-birdSize/2<pipe.top || birdY+birdSize/2>canvas.height-pipe.bottom)){
+      gameOver=true;
+      hitSound.play();
+    }
+  });
+
+  if(birdY+birdSize/2>=canvas.height-60 || birdY-birdSize/2<=0){
+    gameOver=true;
+    hitSound.play();
+  }
+}
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawBackground();
+  drawBird();
+  drawPipes();
+
+  ctx.fillStyle="black";
+  ctx.font="20px Arial";
+  ctx.fillText(`Score: ${score}`,10,30);
+
+  drawEnergyBar();
+
+  if(gameOver){
+    ctx.fillStyle="rgba(0,0,0,0.5)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle="white";
+    ctx.font="40px Arial";
+    ctx.fillText("Game Over",80,canvas.height/2-20);
+    ctx.font="20px Arial";
+    ctx.fillText("Click to Restart",120,canvas.height/2+20);
+  }
+}
+
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function reset(){
+  if(score > highScore){
+    highScore = score;
+    localStorage.setItem("flappyHighScore", highScore);
+    highScoreDisplay.innerText = `High Score: ${highScore}`;
+  }
+  birdY=200; birdVel=0; pipes=[]; frame=0; score=0; gameOver=false; energy=10; quizActive=false;
+}
+
+document.addEventListener("click",()=>{
+  if(!gameStarted) return;
+  if(gameOver){
+    reset();
+  } else if(!quizActive && energy>0){
+    birdVel=jump;
+    flapSound.currentTime=0;
+    flapSound.play();
+    energy -= 1;
+    if(energy <= 0){
+      energy = 0;
+      showQuiz();
+    }
+  }
+});
+
+function startGame(){
+  homeScreen.style.display="none";
+  gameStarted=true;
+  reset();
+}
+
+loop();
+</script>
+</body>
+</html>
